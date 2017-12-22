@@ -1749,67 +1749,6 @@ sub computeBEScore {
   }
 }
 
-sub readTextOld {
-  my $inPath=shift;
-  my $tokenizedText=shift;
-  my $type=shift;
-  my $lengthLimit=shift;
-  my $byteLimit=shift;
-  my ($text,$bsize,$wsize,@words,$done);
-
-  $$tokenizedText=undef;
-  $bsize=0;
-  $wsize=0;
-  $done=0;
-  open(TEXT,$inPath)||die "Cannot open $inPath\n";
-  if($type=~/^SEE$/oi) {
-    while(defined($line=<TEXT>)) { # SEE abstract format
-      if($line=~/^<a (size=\"[0-9]+\" )?name=\"[0-9]+\">\[([0-9]+)\]<\/a>\s+<a href=\"\#[0-9]+\" id=[0-9]+>([^<]+)/o) {
-	$text=$3;
-	$text=~tr/A-Z/a-z/;
-	&checkSummarySize($tokenizedText,\$text,\$wsize,\$bsize,\$done,$lengthLimit,$byteLimit);
-      }
-    }
-  }
-  elsif($type=~/^ISI$/oi) { # ISI standard sentence by sentence format
-    while(defined($line=<TEXT>)) {
-      if($line=~/^<S SNTNO=\"[0-9a-z,]+\">([^<]+)<\/S>/o) {
-	$text=$1;
-	$text=~tr/A-Z/a-z/;
-	&checkSummarySize($tokenizedText,\$text,\$wsize,\$bsize,\$done,$lengthLimit,$byteLimit);
-      }
-    }
-  }
-  elsif($type=~/^SPL$/oi) { # SPL one Sentence Per Line format
-    while(defined($line=<TEXT>)) {
-      chomp($line);
-      $line=~s/^\s+//;
-      $line=~s/\s+$//;
-      if(defined($line)&&length($line)>0) {
-	$text=$line;
-	$text=~tr/A-Z/a-z/;
-	&checkSummarySize($tokenizedText,\$text,\$wsize,\$bsize,\$done,$lengthLimit,$byteLimit);
-      }
-    }
-  }
-  else {
-    close(TEXT);
-    die "Unknown input format: $type\n";
-  }
-  close(TEXT);
-  if(defined($$tokenizedText)) {
-    $$tokenizedText=~s/\-/ \- /g;
-    $$tokenizedText=~s/[^A-Za-z0-9\-]/ /g;
-    $$tokenizedText=~s/^\s+//;
-    $$tokenizedText=~s/\s+$//;
-    $$tokenizedText=~s/\s+/ /g;
-  }
-  else {
-    print STDERR "readText: $inPath -> empty text\n";
-  }
-  #    print "($$tokenizedText)\n\n";
-}
-
 # enforce length cutoff at the file level
 # convert different input format into SPL format then put them into
 # tokenizedText
@@ -2102,70 +2041,6 @@ sub readText_LCS {
       }
     }
   }
-  if(defined(@{$tokenizedText}>0)) {
-    for($t=0;$t<@{$tokenizedText};$t++) {
-      $tokenizedText->[$t]=~s/\-/ \- /g;
-      $tokenizedText->[$t]=~s/[^A-Za-z0-9\-]/ /g;
-      $tokenizedText->[$t]=~s/^\s+//;
-      $tokenizedText->[$t]=~s/\s+$//;
-      $tokenizedText->[$t]=~s/\s+/ /g;
-    }
-  }
-  else {
-    print STDERR "readText_LCS: $inPath -> empty text\n";
-  }
-}
-
-# LCS computing is based on unit and cannot lump all the text together
-# as in computing ngram co-occurrences
-sub readText_LCS_old {
-  my $inPath=shift;
-  my $tokenizedText=shift;
-  my $type=shift;
-  my $lengthLimit=shift;
-  my $byteLimit=shift;
-  my ($text,$t,$bsize,$wsize,$done);
-
-  @{$tokenizedText}=();
-  $bsize=0;
-  $wsize=0;
-  $done=0;
-  open(TEXT,$inPath)||die "Cannot open $inPath\n";
-  if($type=~/^SEE$/oi) {
-    while(defined($line=<TEXT>)) { # SEE abstract format
-      if($line=~/^<a (size=\"[0-9]+\" )?name=\"[0-9]+\">\[([0-9]+)\]<\/a>\s+<a href=\"\#[0-9]+\" id=[0-9]+>([^<]+)/o) {
-	$text=$3;
-	$text=~tr/A-Z/a-z/;
-	&checkSummarySize_LCS($tokenizedText,\$text,\$wsize,\$bsize,\$done,$lengthLimit,$byteLimit);
-      }
-    }
-  }
-  elsif($type=~/^ISI$/oi) { # ISI standard sentence by sentence format
-    while(defined($line=<TEXT>)) {
-      if($line=~/^<S SNTNO=\"[0-9a-z,]+\">([^<]+)<\/S>/o) {
-	$text=$1;
-	$text=~tr/A-Z/a-z/;
-	&checkSummarySize_LCS($tokenizedText,\$text,\$wsize,\$bsize,\$done,$lengthLimit,$byteLimit);
-      }
-    }
-  }
-  elsif($type=~/^SPL$/oi) { # SPL one Sentence Per Line format
-    while(defined($line=<TEXT>)) {
-      chomp($line);
-      $line=~s/^\s+//;
-      $line=~s/\s+$//;
-      if(defined($line)&&length($line)>0) {
-	$text=$line;
-	$text=~tr/A-Z/a-z/;
-	&checkSummarySize_LCS($tokenizedText,\$text,\$wsize,\$bsize,\$done,$lengthLimit,$byteLimit);
-      }
-    }
-  }
-  else {
-    close(TEXT);
-    die "Unknown input format: $type\n";
-  }
-  close(TEXT);
   if(defined(@{$tokenizedText}>0)) {
     for($t=0;$t<@{$tokenizedText};$t++) {
       $tokenizedText->[$t]=~s/\-/ \- /g;
