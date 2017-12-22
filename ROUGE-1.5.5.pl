@@ -170,7 +170,11 @@
 #
 # Contributor to its design is Chin-Yew Lin.
 
+use utf8;
+use feature 'unicode_strings';
+use open ':encoding(UTF-8)';
 use XML::DOM;
+use DBM_Filter;
 use DB_File;
 use Getopt::Std;
 #-------------------------------------------------------------------------------------
@@ -480,8 +484,9 @@ while(defined($line=<STOP>)) {
 close(STOP);
 # load WordNet database
 if(-e "$wordnetDB") {
-  tie %exceptiondb,'DB_File',"$wordnetDB",O_RDONLY,0440,$DB_HASH or
-    die "Cannot open exception db file for reading: $wordnetDB\n";
+  my $db = (tie %exceptiondb,'DB_File',"$wordnetDB",O_RDONLY,0440,$DB_HASH or
+    die "Cannot open exception db file for reading: $wordnetDB\n");
+  $db->Filter_Push('utf8');
 }
 else {
   die "Cannot open exception db file for reading: $wordnetDB\n";
@@ -1771,7 +1776,7 @@ sub readText {
       if($line=~/^<a size=\"[0-9]+\" name=\"[0-9]+\">\[([0-9]+)\]<\/a>\s+<a href=\"\#[0-9]+\" id=[0-9]+>([^<]+)/o||
 	 $line=~/^<a name=\"[0-9]+\">\[([0-9]+)\]<\/a>\s+<a href=\"\#[0-9]+\" id=[0-9]+>([^<]+)/o) {
 	$text=$2;
-	$text=~tr/A-Z/a-z/;
+	$text=lc($text);
 	push(@sntList,$text);
       }
     }
@@ -1780,7 +1785,7 @@ sub readText {
     while(defined($line=<TEXT>)) {
       if($line=~/^<S SNTNO=\"[0-9a-z,]+\">([^<]+)<\/S>/o) {
 	$text=$1;
-	$text=~tr/A-Z/a-z/;
+	$text=lc($text);
 	push(@sntList,$text);
       }
     }
@@ -1790,7 +1795,7 @@ sub readText {
       chomp($line);
       if(defined($line)&&length($line)>0) {
 	$text=$line;
-	$text=~tr/A-Z/a-z/;
+	$text=lc($text);
 	push(@sntList,$text);
       }
     }
@@ -1862,7 +1867,7 @@ sub readText {
   }
   if(defined($$tokenizedText)) {
     $$tokenizedText=~s/\-/ \- /g;
-    $$tokenizedText=~s/[^A-Za-z0-9\-]/ /g;
+    $$tokenizedText=~s/[^\w]/ /ug;
     $$tokenizedText=~s/^\s+//;
     $$tokenizedText=~s/\s+$//;
     $$tokenizedText=~s/\s+/ /g;
@@ -1975,7 +1980,7 @@ sub readText_LCS {
       if($line=~/^<a size=\"[0-9]+\" name=\"[0-9]+\">\[([0-9]+)\]<\/a>\s+<a href=\"\#[0-9]+\" id=[0-9]+>([^<]+)/o||
 	 $line=~/^<a name=\"[0-9]+\">\[([0-9]+)\]<\/a>\s+<a href=\"\#[0-9]+\" id=[0-9]+>([^<]+)/o) {
 	$text=$2;
-	$text=~tr/A-Z/a-z/;
+	$text=lc($text);
 	push(@sntList,$text);
       }
     }
@@ -1984,7 +1989,7 @@ sub readText_LCS {
     while(defined($line=<TEXT>)) {
       if($line=~/^<S SNTNO=\"[0-9a-z,]+\">([^<]+)<\/S>/o) {
 	$text=$1;
-	$text=~tr/A-Z/a-z/;
+	$text=lc($text);
 	push(@sntList,$text);
       }
     }
@@ -1994,7 +1999,7 @@ sub readText_LCS {
       chomp($line);
       if(defined($line)&&length($line)>0) {
 	$text=$line;
-	$text=~tr/A-Z/a-z/;
+	$text=lc($text);
 	push(@sntList,$text);
       }
     }
@@ -2044,7 +2049,7 @@ sub readText_LCS {
   if(defined(@{$tokenizedText}>0)) {
     for($t=0;$t<@{$tokenizedText};$t++) {
       $tokenizedText->[$t]=~s/\-/ \- /g;
-      $tokenizedText->[$t]=~s/[^A-Za-z0-9\-]/ /g;
+      $tokenizedText->[$t]=~s/[^\w]/ /ug;
       $tokenizedText->[$t]=~s/^\s+//;
       $tokenizedText->[$t]=~s/\s+$//;
       $tokenizedText->[$t]=~s/\s+/ /g;
@@ -2458,7 +2463,7 @@ sub MorphStem {
   }
 
   $ltoken=$token;
-  $ltoken=~tr/A-Z/a-z/;
+  $ltoken=lc($ltoken);
   if(exists($exceptiondb{$ltoken})) {
     return $exceptiondb{$ltoken};
   }
@@ -2490,7 +2495,7 @@ sub createNGram {
   for($i=0;$i<=$#mx_tokens;$i++) {
     unless(exists($stopwords{$mx_tokens[$i]})) {
       $byteSize+=length($mx_tokens[$i])+1; # the length of words in bytes so far + 1 space
-      if($mx_tokens[$i]=~/^[a-z0-9\$]/o) {
+      if($mx_tokens[$i]=~/^[\w]/uo) {
 	if(defined($opt_m)) {
 	  # use stemmer
 	  # only consider words starting with these characters
@@ -2554,7 +2559,7 @@ sub createSkipBigram {
   for($i=0;$i<=$#mx_tokens;$i++) {
     unless(exists($stopwords{$mx_tokens[$i]})) {
       $byteSize+=length($mx_tokens[$i])+1; # the length of words in bytes so far + 1 space
-      if($mx_tokens[$i]=~/^[a-z0-9\$]/o) {
+      if($mx_tokens[$i]=~/^[\w]/uo) {
 	if(defined($opt_m)) {
 	  # use stemmer
 	  # only consider words starting with these characters
@@ -2621,7 +2626,7 @@ sub createBE {
     my (@fds);
     my ($be,$stemH,$stemM);
     $be=$BEList->[$i];
-    $be=~tr/A-Z/a-z/;
+    $be=lc($be);
     @fds=split(/\|/,$be);
     if(@fds!=3) {
       print STDERR "Basic Element (BE) input file is invalid: *$be*\n";
@@ -2704,7 +2709,7 @@ sub MorphStemMulti {
 
   @tokens=split(/\s+/,$string);
   foreach $t (@tokens) {
-    if($t=~/[A-Za-z0-9]/o&&
+    if($t=~/[\w]/uo&&
        $t!~/(-LRB-|-RRB-|-LSB-|-RSB-|-LCB-|-RCB-)/o) {
       my $s;
       if(defined($s=&MorphStem($t))) {
@@ -2738,7 +2743,7 @@ sub tokenizeText {
   for($i=0;$i<=$#mx_tokens;$i++) {
     unless(exists($stopwords{$mx_tokens[$i]})) {
       $byteSize+=length($mx_tokens[$i])+1; # the length of words in bytes so far + 1 space
-      if($mx_tokens[$i]=~/^[a-z0-9\$]/o) {
+      if($mx_tokens[$i]=~/^[\w]/uo) {
 	if(defined($opt_m)) {
 	  # use stemmer
 	  # only consider words starting with these characters
@@ -2785,7 +2790,7 @@ sub tokenizeText_LCS {
     for($i=0;$i<=$#mx_tokens;$i++) {
       unless(exists($stopwords{$mx_tokens[$i]})) {
 	$byteSize+=length($mx_tokens[$i])+1; # the length of words in bytes so far + 1 space
-	if($mx_tokens[$i]=~/^[a-z0-9\$]/o) {
+	if($mx_tokens[$i]=~/^[\w]/uo) {
 	  if(defined($opt_m)) {
 	    # use stemmer
 	    # only consider words starting with these characters
